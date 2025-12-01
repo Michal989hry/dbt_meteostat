@@ -26,4 +26,4 @@ JOIN {{ ref('prep_airports') }} ps
 GROUP BY 
     pf.origin, pa.city, pa.country, pa.name,
     pf.dest, ps.city, ps.country, ps.name
-ORDER BY pf.origin, pf.dest;
+ORDER BY pf.origin, pf.dest
