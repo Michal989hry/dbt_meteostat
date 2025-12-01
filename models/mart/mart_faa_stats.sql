@@ -1,3 +1,5 @@
+CREATE OR REPLACE VIEW {{ var('view_name', 'airport_flight_summary') }} AS
+
 WITH departures AS (
     SELECT
         origin AS faa,
@@ -6,7 +8,7 @@ WITH departures AS (
         SUM(cancelled) AS canceled_departure_flights,
         SUM(diverted) AS diverted_departure_flights,
         SUM(CASE WHEN cancelled = 0 AND diverted = 0 THEN 1 ELSE 0 END) AS actual_departure_flights
-    FROM prep_flights
+    FROM {{ ref('prep_flights') }}
     GROUP BY origin
 ),
 arrivals AS (
@@ -17,7 +19,7 @@ arrivals AS (
         SUM(cancelled) AS canceled_arrival_flights,
         SUM(diverted) AS diverted_arrival_flights,
         SUM(CASE WHEN cancelled = 0 AND diverted = 0 THEN 1 ELSE 0 END) AS actual_arrival_flights
-    FROM prep_flights
+    FROM {{ ref('prep_flights') }}
     GROUP BY dest
 )
 SELECT
@@ -31,7 +33,7 @@ SELECT
     COALESCE(d.canceled_departure_flights, 0) + COALESCE(a.canceled_arrival_flights, 0) AS total_canceled_flights,
     COALESCE(d.diverted_departure_flights, 0) + COALESCE(a.diverted_arrival_flights, 0) AS total_diverted_flights,
     COALESCE(d.actual_departure_flights, 0) + COALESCE(a.actual_arrival_flights, 0) AS total_actual_flights
-FROM prep_airports pa
+FROM {{ ref('prep_airports') }} pa
 LEFT JOIN departures d ON pa.faa = d.faa
 LEFT JOIN arrivals a ON pa.faa = a.faa
 ORDER BY pa.faa;
