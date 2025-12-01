@@ -35,4 +35,4 @@ FROM {{ ref('prep_airports') }} pa
 LEFT JOIN departures d ON pa.faa = d.faa
 LEFT JOIN arrivals   a ON pa.faa = a.faa
 LEFT JOIN flight_totals t ON pa.faa = t.faa
-ORDER BY pa.faa;
+ORDER BY pa.faa
