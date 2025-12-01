@@ -1,39 +1,38 @@
-CREATE OR REPLACE VIEW {{ var('view_name', 'airport_flight_summary') }} AS
-
 WITH departures AS (
-    SELECT
-        origin AS faa,
-        COUNT(DISTINCT dest) AS unique_departure_connections,
-        COUNT(*) AS total_departure_flights,
-        SUM(cancelled) AS canceled_departure_flights,
-        SUM(diverted) AS diverted_departure_flights,
-        SUM(CASE WHEN cancelled = 0 AND diverted = 0 THEN 1 ELSE 0 END) AS actual_departure_flights
+    SELECT origin AS faa, COUNT(DISTINCT dest) AS unique_departures
     FROM {{ ref('prep_flights') }}
     GROUP BY origin
 ),
 arrivals AS (
-    SELECT
-        dest AS faa,
-        COUNT(DISTINCT origin) AS unique_arrival_connections,
-        COUNT(*) AS total_arrival_flights,
-        SUM(cancelled) AS canceled_arrival_flights,
-        SUM(diverted) AS diverted_arrival_flights,
-        SUM(CASE WHEN cancelled = 0 AND diverted = 0 THEN 1 ELSE 0 END) AS actual_arrival_flights
+    SELECT dest AS faa, COUNT(DISTINCT origin) AS unique_arrivals
     FROM {{ ref('prep_flights') }}
     GROUP BY dest
+),
+flight_totals AS (
+    SELECT 
+        faa,
+        COUNT(*) AS total_planned,
+        SUM(CASE WHEN cancelled = 1 THEN 1 ELSE 0 END) AS total_canceled,
+        SUM(CASE WHEN diverted = 1 THEN 1 ELSE 0 END) AS total_diverted,
+        SUM(CASE WHEN cancelled = 0 AND diverted = 0 THEN 1 ELSE 0 END) AS total_actual
+    FROM (
+        SELECT origin AS faa, cancelled, diverted FROM {{ ref('prep_flights') }}
+        UNION ALL
+        SELECT dest AS faa, cancelled, diverted FROM {{ ref('prep_flights') }}
+    ) x
+    GROUP BY faa
 )
-SELECT
+SELECT 
     pa.faa,
     pa.name,
-    pa.city,
-    pa.country,
-    COALESCE(d.unique_departure_connections, 0) AS unique_departure_connections,
-    COALESCE(a.unique_arrival_connections, 0) AS unique_arrival_connections,
-    COALESCE(d.total_departure_flights, 0) + COALESCE(a.total_arrival_flights, 0) AS total_planned_flights,
-    COALESCE(d.canceled_departure_flights, 0) + COALESCE(a.canceled_arrival_flights, 0) AS total_canceled_flights,
-    COALESCE(d.diverted_departure_flights, 0) + COALESCE(a.diverted_arrival_flights, 0) AS total_diverted_flights,
-    COALESCE(d.actual_departure_flights, 0) + COALESCE(a.actual_arrival_flights, 0) AS total_actual_flights
+    COALESCE(d.unique_departures, 0) AS unique_departure_connections,
+    COALESCE(a.unique_arrivals, 0) AS unique_arrival_connections,
+    COALESCE(t.total_planned, 0) AS total_planned_flights,
+    COALESCE(t.total_canceled, 0) AS total_canceled_flights,
+    COALESCE(t.total_diverted, 0) AS total_diverted_flights,
+    COALESCE(t.total_actual, 0) AS total_actual_flights
 FROM {{ ref('prep_airports') }} pa
 LEFT JOIN departures d ON pa.faa = d.faa
-LEFT JOIN arrivals a ON pa.faa = a.faa
+LEFT JOIN arrivals   a ON pa.faa = a.faa
+LEFT JOIN flight_totals t ON pa.faa = t.faa
 ORDER BY pa.faa;
